@@ -18,6 +18,7 @@ export default function City({
   hMin = 0.6, // min building height
   hMax = 4.5, // max building height
   seed = 12,
+  softShadows = true,
 }) {
   const rand = useMemo(() => rng(seed), [seed]);
   const [hovered, setHovered] = useState(null);
@@ -74,8 +75,8 @@ export default function City({
         sectionSize={gap * 4}
         sectionThickness={1.2}
         sectionColor="#0891b2"
-        fadeDistance={40}
-        infiniteGrid
+        fadeDistance={32}
+        infiniteGrid={false}
       />
 
       {/* Buildings (instanced for perf) */}
@@ -108,10 +109,11 @@ export default function City({
       {/* Soft ground shadow */}
       <ContactShadows
         position={[0, 0, 0]}
-        opacity={0.45}
+        opacity={softShadows ? 0.42 : 0.28}
         scale={50}
-        blur={2.5}
-        far={8}
+        blur={softShadows ? 2.2 : 1.2}
+        far={softShadows ? 7 : 5}
+        frames={1}
       />
     </group>
   );

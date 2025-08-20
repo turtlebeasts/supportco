@@ -1,54 +1,108 @@
-// imports
-import { useRef, useEffect } from "react";
+// src/three/Scene.jsx
 import * as THREE from "three";
-import { Canvas, useThree } from "@react-three/fiber";
-import { Environment, OrbitControls } from "@react-three/drei";
+import { useEffect, useRef, useState } from "react";
+import { Canvas } from "@react-three/fiber";
+import {
+  Environment,
+  OrbitControls,
+  PerformanceMonitor,
+  AdaptiveDpr,
+} from "@react-three/drei";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import City from "./City.jsx";
 
+const isCoarse = () =>
+  typeof window !== "undefined" &&
+  window.matchMedia &&
+  matchMedia("(pointer: coarse)").matches;
+
 export default function Scene({ eventSource }) {
+  const [low, setLow] = useState(isCoarse());
   const controlsRef = useRef(null);
 
+  // Slow, eased autorotate: pauses on interaction, resumes after 3s, ramping smoothly
   useEffect(() => {
     const c = controlsRef.current;
     if (!c) return;
-    let t;
-    const pause = () => {
-      c.autoRotate = false;
-      clearTimeout(t);
-      t = setTimeout(() => (c.autoRotate = true), 3000); // resume after 3s idle
+
+    // nice, slow base speed (lower on phones)
+    const base = low ? 0.08 : 0.35; // was 0.2 / 0.35
+    const idleDelay = 3000; // ms to wait before resuming
+    const rampMs = 650; // ms to ease speed changes
+
+    c.autoRotate = true;
+    c.autoRotateSpeed = base;
+
+    let idleTimer, rafId;
+
+    const setSpeed = (to, ms = rampMs) => {
+      const from = c.autoRotateSpeed;
+      const start = performance.now();
+      cancelAnimationFrame(rafId);
+      const tick = (t) => {
+        const p = Math.min(1, (t - start) / ms);
+        // smooth ease-out cubic
+        const eased = 1 - Math.pow(1 - p, 3);
+        c.autoRotateSpeed = from + (to - from) * eased;
+        if (p < 1) rafId = requestAnimationFrame(tick);
+      };
+      rafId = requestAnimationFrame(tick);
     };
-    c.addEventListener("start", pause); // user starts interacting
-    c.addEventListener("end", pause); // user stops; start idle timer
+
+    const pause = () => {
+      clearTimeout(idleTimer);
+      setSpeed(0, 250); // stop quickly when user interacts
+      idleTimer = setTimeout(() => setSpeed(base), idleDelay); // resume gently
+    };
+
+    c.addEventListener("start", pause);
+    c.addEventListener("end", pause);
+
     return () => {
       c.removeEventListener("start", pause);
       c.removeEventListener("end", pause);
-      clearTimeout(t);
+      clearTimeout(idleTimer);
+      cancelAnimationFrame(rafId);
     };
-  }, []);
+  }, [low]);
 
   return (
     <Canvas
       style={{ touchAction: "none" }}
       eventSource={eventSource}
       eventPrefix="client"
-      dpr={[1, 1.75]}
+      dpr={low ? [1, 1.15] : [1, 1.75]}
       shadows
-      gl={{ antialias: true }}
+      gl={{ antialias: !low, powerPreference: "high-performance" }}
       camera={{ position: [8, 8, 12], fov: 45 }}
       onCreated={({ scene }) => {
         scene.fog = new THREE.FogExp2("#020617", 0.06);
       }}
     >
-      <ambientLight intensity={0.5} />
-      <directionalLight position={[8, 12, 6]} intensity={1.2} castShadow />
-      <City />
+      {/* Auto downshift if FPS drops */}
+      <PerformanceMonitor onDecline={() => setLow(true)} />
+      <AdaptiveDpr pixelated />
 
-      <EffectComposer disableNormalPass>
-        <Bloom mipmapBlur intensity={0.45} luminanceThreshold={0.55} />
-      </EffectComposer>
+      {/* Lights */}
+      <ambientLight intensity={0.55} />
+      <directionalLight
+        position={[8, 12, 6]}
+        intensity={1.15}
+        castShadow
+        shadow-mapSize-width={low ? 512 : 1024}
+        shadow-mapSize-height={low ? 512 : 1024}
+      />
 
-      <Environment preset="city" />
+      {/* City */}
+      <City cols={low ? 9 : 12} rows={low ? 9 : 12} softShadows={!low} />
+
+      {/* Post FX / Env only on higher quality */}
+      {!low && (
+        <EffectComposer disableNormalPass>
+          <Bloom mipmapBlur intensity={0.4} luminanceThreshold={0.6} />
+        </EffectComposer>
+      )}
+      {!low && <Environment preset="city" />}
 
       <OrbitControls
         ref={controlsRef}
@@ -58,30 +112,15 @@ export default function Scene({ eventSource }) {
         enablePan={false}
         enableDamping
         dampingFactor={0.08}
-        autoRotate
-        autoRotateSpeed={0.35}
         minDistance={8}
         maxDistance={30}
         minPolarAngle={0.9}
         maxPolarAngle={1.45}
         target={[0, 2, 0]}
         touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN }}
+        // Ensure updates keep running so autorotate animates
+        autoRotate // initial on; speed set in useEffect
       />
-
-      <ResetViewOnKey />
     </Canvas>
   );
-}
-
-// Press "R" to reset the camera/target
-function ResetViewOnKey() {
-  const controls = useThree((s) => s.controls);
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key.toLowerCase() === "r") controls?.reset();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [controls]);
-  return null;
 }
