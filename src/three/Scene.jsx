@@ -16,18 +16,18 @@ const isCoarse = () =>
   window.matchMedia &&
   matchMedia("(pointer: coarse)").matches;
 
-export default function Scene({ eventSource, autoBase = 0.08 }) {
+export default function Scene({ eventSource, autoBase = 0.35 }) {
   const [low, setLow] = useState(isCoarse());
   const controlsRef = useRef(null);
 
   // current rotate speed we feed into OrbitControls (reactive)
   const [rotSpeed, setRotSpeed] = useState(() =>
-    low ? Math.min(autoBase, 0.08) : autoBase
+    low ? Math.min(autoBase, 0.35) : autoBase
   );
 
   useEffect(() => {
     // keep rotSpeed in sync if quality mode changes or prop changes
-    const target = low ? Math.min(autoBase, 0.08) : autoBase;
+    const target = low ? Math.min(autoBase, 0.35) : autoBase;
     setRotSpeed((prev) => target); // no ramp here; we ramp during pause/resume below
   }, [low, autoBase]);
 
