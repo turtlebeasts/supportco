@@ -1,0 +1,67 @@
+@import "tailwindcss";
+:root {
+  --bg: 3 7 18;
+  --fg: 248 250 252;
+  --brand: 14 165 233;
+}
+html,
+body,
+#root {
+  height: 100%;
+  scroll-behavior: smooth;
+}
+body {
+  background: rgb(var(--bg));
+  color: rgb(var(--fg));
+}
+
+@utility card {
+  @apply rounded-2xl border border-white/10 bg-white/5;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+/* --- marquee helpers --- */
+.marquee-row {
+  position: relative;
+  width: 200%;
+}
+.marquee-track {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem;
+  width: 50%;
+}
+.marquee-row {
+  animation: marquee-left 28s linear infinite;
+}
+.marquee-row:hover {
+  animation-play-state: paused;
+}
+@keyframes marquee-left {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* --- Contrast helpers --- */
+@utility card-strong {
+  @apply backdrop-blur-md;
+  /* darker, denser surface than bg-white/5 */
+  background: color-mix(in srgb, rgb(2 6 23) 72%, transparent);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+}
+
+@utility text-high {
+  color: rgb(241 245 249);
+} /* ~slate-100 */
+@utility text-med {
+  color: rgb(203 213 225);
+} /* ~slate-300 */
+@utility text-dim {
+  color: rgb(148 163 184);
+} /* ~slate-400 */
+
+/* Optional: tiny text glow for headings on busy backgrounds */
+@utility text-glow {
+  text-shadow: 0 2px 12px rgba(14, 165, 233, 0.35);
+}
