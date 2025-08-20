@@ -18,7 +18,7 @@ export default function Home() {
       {/* Fullscreen canvas (visuals only) */}
       <div className="fixed inset-0 z-0 pointer-events-none">
         {/* IMPORTANT: pass heroEventsRef as the eventSource */}
-        <Scene eventSource={heroEventsRef} />
+        <Scene eventSource={heroEventsRef} autoBase={0.35} />
       </div>
 
       {/* Non-blocking readability gradient */}

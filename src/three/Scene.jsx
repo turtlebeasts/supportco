@@ -16,43 +16,55 @@ const isCoarse = () =>
   window.matchMedia &&
   matchMedia("(pointer: coarse)").matches;
 
-export default function Scene({ eventSource }) {
+export default function Scene({ eventSource, autoBase = 0.08 }) {
   const [low, setLow] = useState(isCoarse());
   const controlsRef = useRef(null);
 
-  // Slow, eased autorotate: pauses on interaction, resumes after 3s, ramping smoothly
+  // current rotate speed we feed into OrbitControls (reactive)
+  const [rotSpeed, setRotSpeed] = useState(() =>
+    low ? Math.min(autoBase, 0.08) : autoBase
+  );
+
+  useEffect(() => {
+    // keep rotSpeed in sync if quality mode changes or prop changes
+    const target = low ? Math.min(autoBase, 0.08) : autoBase;
+    setRotSpeed((prev) => target); // no ramp here; we ramp during pause/resume below
+  }, [low, autoBase]);
+
+  // Pause on user interaction, resume after a delay with a smooth ramp
   useEffect(() => {
     const c = controlsRef.current;
     if (!c) return;
 
-    // nice, slow base speed (lower on phones)
-    const base = low ? 0.08 : 0.35; // was 0.2 / 0.35
-    const idleDelay = 3000; // ms to wait before resuming
-    const rampMs = 650; // ms to ease speed changes
-
-    c.autoRotate = true;
-    c.autoRotateSpeed = base;
-
     let idleTimer, rafId;
+    const idleDelay = 3000; // ms before resuming
+    const rampMs = 650; // ramp duration
 
-    const setSpeed = (to, ms = rampMs) => {
+    // helper: tween rotSpeed to a target value
+    const rampTo = (to, ms = rampMs) => {
       const from = c.autoRotateSpeed;
       const start = performance.now();
       cancelAnimationFrame(rafId);
       const tick = (t) => {
         const p = Math.min(1, (t - start) / ms);
-        // smooth ease-out cubic
-        const eased = 1 - Math.pow(1 - p, 3);
-        c.autoRotateSpeed = from + (to - from) * eased;
+        const eased = 1 - Math.pow(1 - p, 3); // easeOutCubic
+        setRotSpeed(from + (to - from) * eased);
         if (p < 1) rafId = requestAnimationFrame(tick);
       };
       rafId = requestAnimationFrame(tick);
     };
 
+    // ensure autorotate is enabled
+    c.autoRotate = true;
+    c.autoRotateSpeed = rotSpeed;
+
     const pause = () => {
       clearTimeout(idleTimer);
-      setSpeed(0, 250); // stop quickly when user interacts
-      idleTimer = setTimeout(() => setSpeed(base), idleDelay); // resume gently
+      rampTo(0, 250); // stop quickly
+      idleTimer = setTimeout(() => {
+        const target = low ? Math.min(autoBase, 0.08) : autoBase;
+        rampTo(target); // resume gently
+      }, idleDelay);
     };
 
     c.addEventListener("start", pause);
@@ -64,7 +76,7 @@ export default function Scene({ eventSource }) {
       clearTimeout(idleTimer);
       cancelAnimationFrame(rafId);
     };
-  }, [low]);
+  }, [low, autoBase, rotSpeed]);
 
   return (
     <Canvas
@@ -79,7 +91,6 @@ export default function Scene({ eventSource }) {
         scene.fog = new THREE.FogExp2("#020617", 0.06);
       }}
     >
-      {/* Auto downshift if FPS drops */}
       <PerformanceMonitor onDecline={() => setLow(true)} />
       <AdaptiveDpr pixelated />
 
@@ -118,8 +129,8 @@ export default function Scene({ eventSource }) {
         maxPolarAngle={1.45}
         target={[0, 2, 0]}
         touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN }}
-        // Ensure updates keep running so autorotate animates
-        autoRotate // initial on; speed set in useEffect
+        autoRotate
+        autoRotateSpeed={rotSpeed} // <- driven by state
       />
     </Canvas>
   );
