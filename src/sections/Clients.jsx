@@ -13,18 +13,20 @@ const logos = [
   "Massive Dynamic",
 ];
 
-function Track({ startOffset = 0 }) {
-  // duplicate content so it loops seamlessly
-  const row = [...logos, ...logos];
+// Reusable track
+function Track({ dir = "left", duration = 28 }) {
+  const row = [...logos, ...logos]; // seamless loop
   return (
     <div
-      className="marquee-row"
-      style={{ transform: `translateX(${startOffset}%)` }}
+      className={`marquee-row ${
+        dir === "right" ? "marquee-right" : "marquee-left"
+      }`}
+      style={{ animationDuration: `${duration}s` }}
     >
       <div className="marquee-track">
         {row.map((name, i) => (
           <div
-            key={i}
+            key={`${dir}-${i}`}
             className="h-12 px-5 rounded-xl border border-white/10 bg-white/5 grid place-items-center text-sm text-slate-200 whitespace-nowrap"
           >
             {name}
@@ -47,8 +49,8 @@ export default function Clients() {
         />
 
         <div className="mt-10 overflow-hidden rounded-2xl border border-white/10 bg-white/5">
-          <Track startOffset={0} />
-          <Track startOffset={-50} />
+          <Track dir="left" duration={28} />
+          <Track dir="right" duration={28} />
         </div>
       </div>
     </section>
